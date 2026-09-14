@@ -1,0 +1,137 @@
+{
+  "diabetes": {
+    "best_model": "Random Forest",
+    "metrics": {
+      "Model": "Random Forest",
+      "Accuracy": 0.7467532467532467,
+      "Precision": 0.6229508196721312,
+      "Recall": 0.7037037037037037,
+      "F1-score": 0.6608695652173913,
+      "ROC-AUC": 0.8153703703703704
+    },
+    "all_models": [
+      {
+        "Model": "Random Forest",
+        "Accuracy": 0.7467532467532467,
+        "Precision": 0.6229508196721312,
+        "Recall": 0.7037037037037037,
+        "F1-score": 0.6608695652173913,
+        "ROC-AUC": 0.8153703703703704
+      },
+      {
+        "Model": "XGBoost",
+        "Accuracy": 0.7402597402597403,
+        "Precision": 0.6129032258064516,
+        "Recall": 0.7037037037037037,
+        "F1-score": 0.6551724137931034,
+        "ROC-AUC": 0.8181481481481482
+      },
+      {
+        "Model": "SVM",
+        "Accuracy": 0.7272727272727273,
+        "Precision": 0.5967741935483871,
+        "Recall": 0.6851851851851852,
+        "F1-score": 0.6379310344827587,
+        "ROC-AUC": 0.8113888888888888
+      },
+      {
+        "Model": "Logistic Regression",
+        "Accuracy": 0.7142857142857143,
+        "Precision": 0.5806451612903226,
+        "Recall": 0.6666666666666666,
+        "F1-score": 0.6206896551724138,
+        "ROC-AUC": 0.8114814814814815
+      }
+    ]
+  },
+  "heart": {
+    "best_model": "Random Forest",
+    "metrics": {
+      "Model": "Random Forest",
+      "Accuracy": 0.8360655737704918,
+      "Precision": 0.7804878048780488,
+      "Recall": 0.9696969696969697,
+      "F1-score": 0.8648648648648649,
+      "ROC-AUC": 0.908008658008658
+    },
+    "all_models": [
+      {
+        "Model": "Random Forest",
+        "Accuracy": 0.8360655737704918,
+        "Precision": 0.7804878048780488,
+        "Recall": 0.9696969696969697,
+        "F1-score": 0.8648648648648649,
+        "ROC-AUC": 0.908008658008658
+      },
+      {
+        "Model": "SVM",
+        "Accuracy": 0.8032786885245902,
+        "Precision": 0.8181818181818182,
+        "Recall": 0.8181818181818182,
+        "F1-score": 0.8181818181818182,
+        "ROC-AUC": 0.8690476190476191
+      },
+      {
+        "Model": "Logistic Regression",
+        "Accuracy": 0.7868852459016393,
+        "Precision": 0.7631578947368421,
+        "Recall": 0.8787878787878788,
+        "F1-score": 0.8169014084507042,
+        "ROC-AUC": 0.8679653679653679
+      },
+      {
+        "Model": "XGBoost",
+        "Accuracy": 0.7868852459016393,
+        "Precision": 0.7631578947368421,
+        "Recall": 0.8787878787878788,
+        "F1-score": 0.8169014084507042,
+        "ROC-AUC": 0.8495670995670995
+      }
+    ]
+  },
+  "parkinsons": {
+    "best_model": "XGBoost",
+    "metrics": {
+      "Model": "XGBoost",
+      "Accuracy": 0.9230769230769231,
+      "Precision": 0.9642857142857143,
+      "Recall": 0.9310344827586207,
+      "F1-score": 0.9473684210526315,
+      "ROC-AUC": 0.9758620689655173
+    },
+    "all_models": [
+      {
+        "Model": "XGBoost",
+        "Accuracy": 0.9230769230769231,
+        "Precision": 0.9642857142857143,
+        "Recall": 0.9310344827586207,
+        "F1-score": 0.9473684210526315,
+        "ROC-AUC": 0.9758620689655173
+      },
+      {
+        "Model": "Random Forest",
+        "Accuracy": 0.8717948717948718,
+        "Precision": 0.9285714285714286,
+        "Recall": 0.896551724137931,
+        "F1-score": 0.9122807017543859,
+        "ROC-AUC": 0.9706896551724138
+      },
+      {
+        "Model": "SVM",
+        "Accuracy": 0.8205128205128205,
+        "Precision": 0.9583333333333334,
+        "Recall": 0.7931034482758621,
+        "F1-score": 0.8679245283018868,
+        "ROC-AUC": 0.9448275862068967
+      },
+      {
+        "Model": "Logistic Regression",
+        "Accuracy": 0.7692307692307693,
+        "Precision": 0.9545454545454546,
+        "Recall": 0.7241379310344828,
+        "F1-score": 0.8235294117647058,
+        "ROC-AUC": 0.9206896551724139
+      }
+    ]
+  }
+}
