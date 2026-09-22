@@ -18,19 +18,22 @@ mdps/
 │   ├── diabetes.csv
 │   ├── heart.csv
 │   └── parkinsons.data
+├── notebooks/
+│   └── eda.ipynb             # Exploratory data analysis for all three datasets
 ├── src/
 │   ├── preprocess.py         # Cleaning, missing-value handling, feature metadata
-│   ├── train.py              # Train/compare/select models, SMOTE, save artifacts
-│   └── explain.py            # SHAP explainer selection + plain-language summaries
+│   ├── train.py               # Train/compare/select models, SMOTE, save artifacts
+│   └── explain.py             # SHAP explainer selection + plain-language summaries
 ├── models/                   # Saved best model + scaler + metadata per disease
-└── results/                  # Per-disease algorithm comparison tables + summary.json
+└── results/                  # Per-disease comparison tables, confusion matrices,
+                               # ROC curve data, and summary.json
 ```
 
 ## How it maps to the synopsis
 
 | Synopsis stage | Implementation |
 |---|---|
-| Step 1 — Data Acquisition & Preprocessing | `src/preprocess.py`: loads Pima Diabetes, Cleveland Heart Disease, UCI Parkinson's; imputes biologically-impossible zeros (diabetes) with the median; scales features with `StandardScaler` |
+| Step 1 — Data Acquisition & Preprocessing | `src/preprocess.py`: loads Pima Diabetes, Cleveland Heart Disease, UCI Parkinson's; imputes biologically-impossible zeros (diabetes) with the median; scales features with `StandardScaler`. Explored in `notebooks/eda.ipynb`. |
 | Step 2 — Class Imbalance Correction | `src/train.py`: SMOTE applied to the **training split only** (never the test set, to avoid leakage) |
 | Step 3 — Model Development & Comparison | Logistic Regression, Random Forest, SVM (RBF), XGBoost trained and compared per disease on Accuracy, Precision, Recall, F1-score, ROC-AUC |
 | Step 4 — Model Interpretability | `src/explain.py`: SHAP (`TreeExplainer` for RF/XGBoost, `LinearExplainer` for Logistic Regression, `KernelExplainer` for SVM), surfaced as plain-language "this factor is pushing risk up/down" statements |
@@ -43,13 +46,21 @@ synopsis's literature review:
 
 - **Diabetes**: Pima Indians Diabetes Dataset (768 records, 8 features)
 - **Heart Disease**: Cleveland Heart Disease Dataset (UCI, 303 records, 13 features)
-- **Parkinson's Disease**: UCI Parkinson's voice-biomarker dataset (195 records, 22 features)
+- **Parkinson's Disease**: UCI Parkinson's voice-biomarker dataset (195 records, 22 features — note: ~6 voice recordings per patient, not 195 independent patients; see `notebooks/eda.ipynb`)
+
+`notebooks/eda.ipynb` walks through missing/zero-value checks, class balance,
+feature distributions, and correlation structure for all three datasets
+before any cleaning or training happens.
 
 ## Results (held-out 20% test split, after SMOTE-balanced training)
 
 Best model selected per disease by highest F1-score. Full comparison across
 all four algorithms is in `results/*_comparison.csv` and `results/summary.json`,
-and is also viewable live in the app's "Model Performance" tab.
+and is also viewable live in the app's **Model Performance** tab — which
+includes an interactive grouped-bar chart, a radar chart, a per-model
+confusion matrix, and an ROC curve overlay (all four models, AUC in the
+legend), each with hover tooltips via Plotly. Raw confusion matrix and ROC
+curve data for every model/disease combination is in `results/*_curves.json`.
 
 | Disease | Best model | Accuracy | Precision | Recall | F1-score | ROC-AUC |
 |---|---|---|---|---|---|---|
@@ -87,6 +98,12 @@ Then open the local URL Streamlit prints (default `http://localhost:8501`),
 pick a disease in the sidebar, fill in the clinical parameters, and click
 **Predict Risk**.
 
+To explore the raw datasets interactively:
+
+```bash
+jupyter notebook notebooks/eda.ipynb
+```
+
 ## Design notes / decisions worth mentioning in your viva
 
 - **Why F1-score to pick the "best" model**, not raw accuracy: these are
@@ -105,6 +122,13 @@ pick a disease in the sidebar, fill in the clinical parameters, and click
   is the appropriate exact method for Logistic Regression; SVM has no
   closed-form SHAP method, so `KernelExplainer` is used against a
   k-means-summarized background for tractable runtime.
+- **Confusion matrix and ROC curve, not just accuracy**: a single accuracy
+  number hides *how* a model fails. The Model Performance tab's confusion
+  matrix shows the actual false-positive/false-negative trade-off per model,
+  and the ROC curve shows performance across all classification thresholds,
+  not just the default 0.5 cutoff — both computed once during training
+  (`src/train.py`) and persisted to `results/*_curves.json`, since the
+  test-set labels aren't available at inference time in the deployed app.
 - **Not a diagnostic tool**: this is explicitly framed in the app UI as an
   educational / preliminary-screening demonstration, consistent with the
   synopsis's own problem statement (a screening aid, not a replacement for a
@@ -114,5 +138,6 @@ pick a disease in the sidebar, fill in the clinical parameters, and click
 
 - Hyperparameter tuning (GridSearchCV / Optuna) per disease/model
 - Cross-validation instead of a single train/test split, for more robust metrics
-- A short evaluation write-up per disease (confusion matrix, ROC curve) for the final report
+- Targeted feature engineering for the Diabetes model specifically, to close
+  the accuracy gap noted above
 - Optionally: containerize (Dockerfile) for the final demo/deployment
