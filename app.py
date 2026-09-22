@@ -17,8 +17,11 @@ import numpy as np
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
+<<<<<<< HEAD
 import plotly.express as px
 import plotly.graph_objects as go
+=======
+>>>>>>> origin/main
 
 from src.preprocess import LOADERS, DISEASE_DISPLAY_NAMES
 from src.explain import get_explainer, explain_instance, plain_language_summary
@@ -29,6 +32,7 @@ RESULTS_DIR = os.path.join(BASE_DIR, "results")
 
 st.set_page_config(page_title="Multiple Disease Prediction System", page_icon="🩺", layout="wide")
 
+<<<<<<< HEAD
 RESULT_CARD_CSS = """
 <style>
 .risk-card {
@@ -100,6 +104,8 @@ RESULT_CARD_CSS = """
 </style>
 """
 
+=======
+>>>>>>> origin/main
 
 # --------------------------------------------------------------------------- #
 # Caching: load model artifacts once per disease
@@ -183,6 +189,7 @@ def render_shap_chart(summary_items, positive_label, negative_label):
     plt.close(fig)
 
 
+<<<<<<< HEAD
 def render_result_card(risk_pct: float, pred: int, disease_display: str, best_model_name: str):
     is_high = pred == 1
     accent = "#dc2626" if is_high else "#16a34a"
@@ -272,6 +279,9 @@ def render_performance_charts(comparison: "pd.DataFrame", best_model_name: str, 
 
 def main():
     st.markdown(RESULT_CARD_CSS, unsafe_allow_html=True)
+=======
+def main():
+>>>>>>> origin/main
     st.title("🩺 Multiple Disease Prediction System")
     st.caption(
         "A single web interface that screens for **Diabetes**, **Heart Disease**, and "
@@ -323,7 +333,17 @@ def main():
                 risk_pct = float(proba[1] * 100)
 
                 disease_display = DISEASE_DISPLAY_NAMES[disease_key]
+<<<<<<< HEAD
                 render_result_card(risk_pct, pred, disease_display, best_model_name)
+=======
+                if pred == 1:
+                    st.error(f"**High risk indicator for {disease_display}**")
+                else:
+                    st.success(f"**Low risk indicator for {disease_display}**")
+                st.metric("Predicted probability of disease", f"{risk_pct:.1f}%")
+                st.progress(float(min(max(proba[1], 0.0), 1.0)))
+                st.caption(f"Model used: {best_model_name} (best-performing model for this disease)")
+>>>>>>> origin/main
 
                 st.markdown("#### Why this prediction? (SHAP explanation)")
                 contributions = explain_instance(explainer, model, x_scaled, feature_names)
@@ -344,8 +364,11 @@ def main():
         st.subheader(f"Algorithm comparison — {DISEASE_DISPLAY_NAMES[disease_key]}")
         comparison = load_comparison(disease_key)
         if comparison is not None:
+<<<<<<< HEAD
             render_performance_charts(comparison, best_model_name, disease_key)
 
+=======
+>>>>>>> origin/main
             st.dataframe(
                 comparison.style.format({
                     "Accuracy": "{:.3f}", "Precision": "{:.3f}",
