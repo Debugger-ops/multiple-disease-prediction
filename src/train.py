@@ -30,7 +30,10 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import LogisticRegression
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import SVC
-from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, roc_auc_score,
+    confusion_matrix, roc_curve,
+)
 from imblearn.over_sampling import SMOTE
 from xgboost import XGBClassifier
 
@@ -86,21 +89,34 @@ def train_one_disease(disease_key: str):
     models = build_models()
     rows = []
     fitted = {}
+    curves = {}
 
     for name, model in models.items():
         model.fit(X_train_res, y_train_res)
         y_pred = model.predict(X_test_scaled)
         y_proba = model.predict_proba(X_test_scaled)[:, 1]
 
+        roc_auc = roc_auc_score(y_test, y_proba)
         rows.append({
             "Model": name,
             "Accuracy": accuracy_score(y_test, y_pred),
             "Precision": precision_score(y_test, y_pred, zero_division=0),
             "Recall": recall_score(y_test, y_pred, zero_division=0),
             "F1-score": f1_score(y_test, y_pred, zero_division=0),
-            "ROC-AUC": roc_auc_score(y_test, y_proba),
+            "ROC-AUC": roc_auc,
         })
         fitted[name] = model
+
+        # Confusion matrix (rows=actual, cols=predicted: [[TN, FP], [FN, TP]])
+        # and ROC curve points, captured here since y_test/y_proba are not
+        # available at inference time in the deployed app.
+        cm = confusion_matrix(y_test, y_pred, labels=[0, 1])
+        fpr, tpr, _ = roc_curve(y_test, y_proba)
+        curves[name] = {
+            "confusion_matrix": cm.tolist(),
+            "roc_auc": float(roc_auc),
+            "roc": {"fpr": fpr.tolist(), "tpr": tpr.tolist()},
+        }
 
     comparison = pd.DataFrame(rows).sort_values("F1-score", ascending=False).reset_index(drop=True)
     best_name = comparison.iloc[0]["Model"]
@@ -121,6 +137,8 @@ def train_one_disease(disease_key: str):
         os.path.join(MODELS_DIR, f"{disease_key}_meta.pkl"),
     )
     comparison.to_csv(os.path.join(RESULTS_DIR, f"{disease_key}_comparison.csv"), index=False)
+    with open(os.path.join(RESULTS_DIR, f"{disease_key}_curves.json"), "w") as f:
+        json.dump(curves, f, indent=2)
 
     print(f"\n=== {DISEASE_DISPLAY_NAMES[disease_key]} ===")
     print(comparison.to_string(index=False))

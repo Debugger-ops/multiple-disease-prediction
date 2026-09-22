@@ -20,6 +20,87 @@ import matplotlib.pyplot as plt
 import plotly.express as px
 import plotly.graph_objects as go
 
+from src.preprocess import LOADERS, DISEASE_DISPLAY_NAMES
+from src.explain import get_explainer, explain_instance, plain_language_summary
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+MODELS_DIR = os.path.join(BASE_DIR, "models")
+RESULTS_DIR = os.path.join(BASE_DIR, "results")
+
+st.set_page_config(page_title="Multiple Disease Prediction System", page_icon="🩺", layout="wide")
+
+RESULT_CARD_CSS = """
+<style>
+.risk-card {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1.5rem 1.75rem;
+    border-radius: 16px;
+    background: var(--secondary-background-color);
+    border: 1px solid rgba(128, 128, 128, 0.18);
+    margin-bottom: 0.75rem;
+}
+.risk-gauge {
+    position: relative;
+    width: 110px;
+    height: 110px;
+    min-width: 110px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+.risk-gauge::before {
+    content: "";
+    position: absolute;
+    inset: 11px;
+    border-radius: 50%;
+    background: var(--background-color);
+}
+.risk-gauge-value {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    line-height: 1.15;
+}
+.risk-gauge-value .risk-num {
+    display: block;
+    font-size: 1.55rem;
+    font-weight: 700;
+}
+.risk-gauge-value .risk-unit {
+    display: block;
+    font-size: 0.65rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.6;
+}
+.risk-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    font-weight: 600;
+    font-size: 0.92rem;
+    line-height: 1.4;
+}
+.risk-disease-name {
+    margin-top: 0.4rem;
+    font-size: 0.85rem;
+    opacity: 0.7;
+}
+.risk-model-caption {
+    margin-top: 0.65rem;
+    font-size: 0.8rem;
+    opacity: 0.55;
+}
+</style>
+"""
+
+
 # --------------------------------------------------------------------------- #
 # Caching: load model artifacts once per disease
 # --------------------------------------------------------------------------- #
@@ -37,6 +118,15 @@ def load_comparison(disease_key: str):
     path = os.path.join(RESULTS_DIR, f"{disease_key}_comparison.csv")
     if os.path.exists(path):
         return pd.read_csv(path)
+    return None
+
+
+@st.cache_data
+def load_curves(disease_key: str):
+    path = os.path.join(RESULTS_DIR, f"{disease_key}_curves.json")
+    if os.path.exists(path):
+        with open(path) as f:
+            return json.load(f)
     return None
 
 
@@ -130,16 +220,104 @@ def render_result_card(risk_pct: float, pred: int, disease_display: str, best_mo
     )
 
 
-def render_performance_charts(comparison: "pd.DataFrame", best_model_name: str, disease_key: str):
+def render_confusion_matrix(curves: dict, best_model_name: str, disease_key: str):
+    model_names = list(curves.keys())
+    default_idx = model_names.index(best_model_name) if best_model_name in model_names else 0
+    selected_model = st.selectbox(
+        "Model",
+        options=model_names,
+        index=default_idx,
+        key=f"{disease_key}_cm_model",
+    )
+
+    cm = np.array(curves[selected_model]["confusion_matrix"])
+    axis_labels = ["No disease (0)", "Disease (1)"]
+
+    fig = go.Figure(data=go.Heatmap(
+        z=cm,
+        x=axis_labels,
+        y=axis_labels,
+        text=cm.astype(str),
+        texttemplate="%{text}",
+        textfont={"size": 22},
+        colorscale="Blues",
+        hovertemplate="Actual: %{y}<br>Predicted: %{x}<br>Count: %{z}<extra></extra>",
+        showscale=False,
+    ))
+    fig.update_layout(
+        xaxis_title="Predicted",
+        yaxis_title="Actual",
+        yaxis=dict(autorange="reversed"),
+        height=420,
+        margin=dict(t=20, b=10, l=10, r=10),
+    )
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
+
+    tn, fp = int(cm[0][0]), int(cm[0][1])
+    fn, tp = int(cm[1][0]), int(cm[1][1])
+    total = tn + fp + fn + tp
+    st.caption(
+        f"**{selected_model}** on the held-out test set ({total} patients): "
+        f"{tp} true positives, {tn} true negatives, {fp} false positives, {fn} false negatives."
+    )
+
+
+def render_roc_curve(curves: dict, best_model_name: str, disease_key: str):
+    fig = go.Figure()
+    for name, data in curves.items():
+        is_best = name == best_model_name
+        fig.add_trace(go.Scatter(
+            x=data["roc"]["fpr"],
+            y=data["roc"]["tpr"],
+            mode="lines",
+            name=f"{name} (AUC={data['roc_auc']:.3f})",
+            line=dict(width=3.5 if is_best else 1.5),
+            hovertemplate="FPR: %{x:.3f}<br>TPR: %{y:.3f}<extra>" + name + "</extra>",
+        ))
+    fig.add_trace(go.Scatter(
+        x=[0, 1], y=[0, 1],
+        mode="lines",
+        name="Random classifier",
+        line=dict(dash="dash", color="gray", width=1),
+        hoverinfo="skip",
+    ))
+    fig.update_layout(
+        xaxis_title="False Positive Rate",
+        yaxis_title="True Positive Rate",
+        xaxis=dict(range=[0, 1]),
+        yaxis=dict(range=[0, 1.02]),
+        height=460,
+        margin=dict(t=20, b=10, l=10, r=10),
+        legend=dict(x=0.42, y=0.08),
+    )
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
+    st.caption(
+        "Curves closer to the top-left corner indicate stronger separation between classes — "
+        "AUC = 1.0 is a perfect classifier, AUC = 0.5 is random guessing."
+    )
+
+
+def render_performance_charts(comparison: "pd.DataFrame", curves: dict, best_model_name: str, disease_key: str):
     metric_cols = ["Accuracy", "Precision", "Recall", "F1-score", "ROC-AUC"]
     long_df = comparison.melt(id_vars="Model", value_vars=metric_cols, var_name="Metric", value_name="Score")
 
+    chart_options = ["Grouped bar", "Radar"]
+    if curves:
+        chart_options += ["Confusion Matrix", "ROC Curve"]
+
     chart_type = st.radio(
         "Chart type",
-        options=["Grouped bar", "Radar"],
+        options=chart_options,
         horizontal=True,
         key=f"{disease_key}_perf_chart_type",
     )
+
+    if chart_type == "Confusion Matrix":
+        render_confusion_matrix(curves, best_model_name, disease_key)
+        return
+    if chart_type == "ROC Curve":
+        render_roc_curve(curves, best_model_name, disease_key)
+        return
 
     if chart_type == "Grouped bar":
         fig = px.bar(
@@ -262,8 +440,9 @@ def main():
     with tab_performance:
         st.subheader(f"Algorithm comparison — {DISEASE_DISPLAY_NAMES[disease_key]}")
         comparison = load_comparison(disease_key)
+        curves = load_curves(disease_key)
         if comparison is not None:
-            render_performance_charts(comparison, best_model_name, disease_key)
+            render_performance_charts(comparison, curves, best_model_name, disease_key)
 
             st.dataframe(
                 comparison.style.format({
