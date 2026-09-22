@@ -1,0 +1,151 @@
+{
+  "cv_scheme": "5-fold stratified K-fold grouped by subject, repeated 3x for reporting",
+  "n_trials_per_model": 50,
+  "n_train": 152,
+  "n_test": 43,
+  "feature_engineering": false,
+  "selection_metric": "balanced_accuracy",
+  "models": {
+    "Logistic Regression": {
+      "best_params": {
+        "C": 0.004311050675428281,
+        "penalty": "l2"
+      },
+      "untuned_cv_balanced_accuracy": 0.5796766381766381,
+      "tuned_cv": {
+        "accuracy": {
+          "mean": 0.6199462365591397,
+          "std": 0.10713477791545968
+        },
+        "precision": {
+          "mean": 0.9349460724460725,
+          "std": 0.06765429280137941
+        },
+        "recall": {
+          "mean": 0.5419145299145299,
+          "std": 0.15670253481723248
+        },
+        "f1": {
+          "mean": 0.6692513182165938,
+          "std": 0.12514307097989325
+        },
+        "roc_auc": {
+          "mean": 0.7939605887939222,
+          "std": 0.17294273647762415
+        },
+        "balanced_accuracy": {
+          "mean": 0.7015128205128204,
+          "std": 0.056374594399519
+        }
+      }
+    },
+    "Random Forest": {
+      "best_params": {
+        "n_estimators": 100,
+        "max_depth": 12,
+        "min_samples_split": 7,
+        "min_samples_leaf": 9,
+        "max_features": 0.5
+      },
+      "untuned_cv_balanced_accuracy": 0.6194729344729345,
+      "tuned_cv": {
+        "accuracy": {
+          "mean": 0.7137275985663082,
+          "std": 0.15328582948949523
+        },
+        "precision": {
+          "mean": 0.813647793791867,
+          "std": 0.14112915327219674
+        },
+        "recall": {
+          "mean": 0.8290940170940171,
+          "std": 0.1395463877746573
+        },
+        "f1": {
+          "mean": 0.8096787251420952,
+          "std": 0.10819752453780222
+        },
+        "roc_auc": {
+          "mean": 0.6888855650522316,
+          "std": 0.20929687065009941
+        },
+        "balanced_accuracy": {
+          "mean": 0.6034358974358974,
+          "std": 0.2136959800735118
+        }
+      }
+    },
+    "SVM": {
+      "best_params": {
+        "C": 29.286756715880504,
+        "gamma": 0.009962178159670198
+      },
+      "untuned_cv_balanced_accuracy": 0.6550698005698004,
+      "tuned_cv": {
+        "accuracy": {
+          "mean": 0.7714336917562724,
+          "std": 0.11101351940289632
+        },
+        "precision": {
+          "mean": 0.8349120640438277,
+          "std": 0.1005295175659524
+        },
+        "recall": {
+          "mean": 0.8808347578347578,
+          "std": 0.1060669238551829
+        },
+        "f1": {
+          "mean": 0.85184323845017,
+          "std": 0.07642053673919373
+        },
+        "roc_auc": {
+          "mean": 0.6306130104463439,
+          "std": 0.26912765495582247
+        },
+        "balanced_accuracy": {
+          "mean": 0.6487507122507122,
+          "std": 0.19737411541626218
+        }
+      }
+    },
+    "XGBoost": {
+      "best_params": {
+        "n_estimators": 100,
+        "max_depth": 5,
+        "learning_rate": 0.027432174983340187,
+        "subsample": 0.9027318605643821,
+        "colsample_bytree": 0.9179793848150595,
+        "min_child_weight": 1,
+        "gamma": 0.5335308857270293,
+        "reg_lambda": 3.916278553820006
+      },
+      "untuned_cv_balanced_accuracy": 0.6501396011396011,
+      "tuned_cv": {
+        "accuracy": {
+          "mean": 0.7360931899641577,
+          "std": 0.14028321268529712
+        },
+        "precision": {
+          "mean": 0.8284061854748354,
+          "std": 0.1463105109267483
+        },
+        "recall": {
+          "mean": 0.8469088319088319,
+          "std": 0.12580252491003374
+        },
+        "f1": {
+          "mean": 0.8248538889191133,
+          "std": 0.10164572935509632
+        },
+        "roc_auc": {
+          "mean": 0.6620280151946819,
+          "std": 0.23652598728488486
+        },
+        "balanced_accuracy": {
+          "mean": 0.6262321937321936,
+          "std": 0.20878852524494448
+        }
+      }
+    }
+  }
+}

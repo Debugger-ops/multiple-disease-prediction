@@ -107,10 +107,12 @@ RESULT_CARD_CSS = """
 @st.cache_resource
 def load_artifacts(disease_key: str):
     model = joblib.load(os.path.join(MODELS_DIR, f"{disease_key}_model.pkl"))
-    scaler = joblib.load(os.path.join(MODELS_DIR, f"{disease_key}_scaler.pkl"))
+    # Full fitted preprocessing pipeline (zero->NaN, feature engineering,
+    # imputation, scaling) -- identical to what the model saw in training.
+    preprocessor = joblib.load(os.path.join(MODELS_DIR, f"{disease_key}_preprocessor.pkl"))
     meta = joblib.load(os.path.join(MODELS_DIR, f"{disease_key}_meta.pkl"))
     explainer = get_explainer(model, meta["X_train_res_sample"])
-    return model, scaler, meta, explainer
+    return model, preprocessor, meta, explainer
 
 
 @st.cache_data
@@ -297,11 +299,40 @@ def render_roc_curve(curves: dict, best_model_name: str, disease_key: str):
     )
 
 
-def render_performance_charts(comparison: "pd.DataFrame", curves: dict, best_model_name: str, disease_key: str):
+def render_cv_chart(comparison: "pd.DataFrame", best_model_name: str, label: str = "F1"):
+    fig = go.Figure()
+    if f"Untuned CV {label}" in comparison.columns:
+        fig.add_trace(go.Bar(
+            x=comparison["Model"], y=comparison[f"Untuned CV {label}"], name="Untuned (default params)",
+            marker_color="rgba(128,128,128,0.45)",
+            hovertemplate="%{x}<br>Untuned CV " + label + ": %{y:.3f}<extra></extra>",
+        ))
+    fig.add_trace(go.Bar(
+        x=comparison["Model"], y=comparison[f"CV {label} (mean)"], name="Tuned (Optuna)",
+        error_y=dict(type="data", array=comparison[f"CV {label} (std)"], visible=True),
+        text=comparison[f"CV {label} (mean)"].map(lambda v: f"{v:.3f}"), textposition="outside",
+        cliponaxis=False,
+        hovertemplate="%{x}<br>Tuned CV " + label + ": %{y:.3f} ± %{error_y.array:.3f}<extra></extra>",
+    ))
+    fig.update_layout(
+        barmode="group", yaxis=dict(range=[0, 1.1], title=f"Cross-validated {label}"),
+        height=440, margin=dict(t=20, b=10, l=10, r=10), legend=dict(orientation="h", y=1.08),
+    )
+    st.plotly_chart(fig, width='stretch', theme="streamlit")
+    st.caption(
+        f"Mean ± std of {label} over 3 × 5-fold cross-validation on the training split. "
+        f"**{best_model_name}** has the highest mean CV {label} and is the deployed model. "
+        "Grey bars show the same models with their default (untuned) hyperparameters."
+    )
+
+
+def render_performance_charts(comparison: "pd.DataFrame", curves: dict, best_model_name: str, disease_key: str,
+                              selection_label: str = "F1"):
     metric_cols = ["Accuracy", "Precision", "Recall", "F1-score", "ROC-AUC"]
     long_df = comparison.melt(id_vars="Model", value_vars=metric_cols, var_name="Metric", value_name="Score")
 
-    chart_options = ["Grouped bar", "Radar"]
+    has_cv = f"CV {selection_label} (mean)" in comparison.columns
+    chart_options = ["Grouped bar", "Radar"] + (["Cross-validation"] if has_cv else [])
     if curves:
         chart_options += ["Confusion Matrix", "ROC Curve"]
 
@@ -312,6 +343,9 @@ def render_performance_charts(comparison: "pd.DataFrame", curves: dict, best_mod
         key=f"{disease_key}_perf_chart_type",
     )
 
+    if chart_type == "Cross-validation":
+        render_cv_chart(comparison, best_model_name, selection_label)
+        return
     if chart_type == "Confusion Matrix":
         render_confusion_matrix(curves, best_model_name, disease_key)
         return
@@ -385,9 +419,10 @@ def main():
         )
         st.markdown("---")
         st.markdown(
-            "**Methodology:** SMOTE-balanced training data · "
-            "Logistic Regression / Random Forest / SVM / XGBoost compared · "
-            "best model selected per disease · SHAP interpretability."
+            "**Methodology:** leak-free pipeline (imputation, scaling and SMOTE fit "
+            "inside each training fold) · Logistic Regression / Random Forest / SVM / "
+            "XGBoost tuned with Optuna · best model chosen by 5-fold cross-validated "
+            "F1 (balanced accuracy for Parkinson's) · SHAP interpretability."
         )
         st.markdown(
             "⚠️ This tool is for **educational / preliminary screening demonstration "
@@ -395,7 +430,7 @@ def main():
             "qualified healthcare professional."
         )
 
-    model, scaler, meta, explainer = load_artifacts(disease_key)
+    model, preprocessor, meta, explainer = load_artifacts(disease_key)
     feature_names = meta["feature_names"]
     feature_info = meta["feature_info"]
     best_model_name = meta["best_model_name"]
@@ -413,7 +448,7 @@ def main():
             st.subheader("Result")
             if predict_clicked:
                 x_row = pd.DataFrame([values])[feature_names]
-                x_scaled = scaler.transform(x_row)
+                x_scaled = preprocessor.transform(x_row)
 
                 proba = model.predict_proba(x_scaled)[0].astype(float)
                 pred = int(np.argmax(proba))
@@ -423,8 +458,10 @@ def main():
                 render_result_card(risk_pct, pred, disease_display, best_model_name)
 
                 st.markdown("#### Why this prediction? (SHAP explanation)")
-                contributions = explain_instance(explainer, model, x_scaled, feature_names)
-                summary_items = plain_language_summary(contributions, feature_info, top_k=6)
+                model_features = meta.get("model_feature_names", feature_names)
+                label_info = {**feature_info, **meta.get("derived_feature_info", {})}
+                contributions = explain_instance(explainer, model, x_scaled, model_features)
+                summary_items = plain_language_summary(contributions, label_info, top_k=6)
 
                 for item in summary_items:
                     arrow = "⬆️" if item["direction"] == "increasing" else "⬇️"
@@ -442,18 +479,22 @@ def main():
         comparison = load_comparison(disease_key)
         curves = load_curves(disease_key)
         if comparison is not None:
-            render_performance_charts(comparison, curves, best_model_name, disease_key)
+            selection_label = meta.get("selection_label", "F1")
+            render_performance_charts(comparison, curves, best_model_name, disease_key, selection_label)
 
+            num_cols = [c for c in comparison.columns if c != "Model"]
+            sel_col = f"CV {selection_label} (mean)"
+            highlight_col = sel_col if sel_col in comparison.columns else "F1-score"
             st.dataframe(
-                comparison.style.format({
-                    "Accuracy": "{:.3f}", "Precision": "{:.3f}",
-                    "Recall": "{:.3f}", "F1-score": "{:.3f}", "ROC-AUC": "{:.3f}",
-                }).highlight_max(subset=["F1-score"], color="#c6f5c6"),
+                comparison.style.format({c: "{:.3f}" for c in num_cols})
+                .highlight_max(subset=[highlight_col], color="#c6f5c6"),
                 width='stretch',
             )
             st.caption(
-                f"Best model selected: **{best_model_name}** (highest F1-score on held-out test data, "
-                "computed after SMOTE-based class-imbalance correction on the training split only)."
+                f"Best model selected: **{best_model_name}** — highest mean cross-validated {selection_label} "
+                f"({meta.get('cv_scheme', '5-fold CV')}) on the training split. "
+                "Accuracy / Precision / Recall / F1-score / ROC-AUC columns are measured once on "
+                "the untouched 20% hold-out test set; CV columns are mean ± std across folds."
             )
         else:
             st.warning("No comparison results found. Run `python -m src.train` first.")

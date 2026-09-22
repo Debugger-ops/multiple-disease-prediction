@@ -27,7 +27,12 @@ from xgboost import XGBClassifier
 
 def get_explainer(model, background: np.ndarray):
     if isinstance(model, (RandomForestClassifier, XGBClassifier)):
-        return shap.TreeExplainer(model)
+        try:
+            return shap.TreeExplainer(model)
+        except Exception:
+            # Some shap/xgboost version pairs can't parse the booster
+            # (e.g. base_score "[5E-1]"); fall back to the model-agnostic path.
+            pass
     if isinstance(model, LogisticRegression):
         return shap.LinearExplainer(model, background)
     # Fallback (e.g. SVM / kernel models) -- summarize background for speed.

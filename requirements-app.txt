@@ -1,0 +1,16 @@
+# Runtime-only dependencies for the Docker image (no training / notebook libs).
+# Pinned to the versions in the project .venv that the models are trained
+# with -- pickled scikit-learn / XGBoost models must be loaded with the same
+# library versions they were saved with. If you upgrade your .venv, update
+# these pins and retrain (python -m src.train) before rebuilding the image.
+numpy==2.5.3
+pandas==3.0.5
+scipy==1.18.1
+scikit-learn==1.9.1
+xgboost==3.4.1
+shap==0.52.0
+streamlit==1.63.0
+matplotlib==3.11.2
+plotly==7.1.0
+joblib==1.6.0
+jinja2==3.1.6

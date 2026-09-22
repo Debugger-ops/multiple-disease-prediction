@@ -26,16 +26,10 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__
 def load_diabetes():
     df = pd.read_csv(os.path.join(DATA_DIR, "diabetes.csv"))
 
-    # In this dataset, a physiological value of 0 is not biologically possible
-    # for these columns and actually encodes a missing measurement.
-    zero_as_missing = ["Glucose", "BloodPressure", "SkinThickness", "Insulin", "BMI"]
-    for col in zero_as_missing:
-        df[col] = df[col].replace(0, np.nan)
-
-    # Median imputation (robust to the skew/outliers typical of clinical data).
-    for col in zero_as_missing:
-        df[col] = df[col].fillna(df[col].median())
-
+    # Zeros in Glucose/BloodPressure/SkinThickness/Insulin/BMI encode "not
+    # measured". They are converted to NaN and median-imputed INSIDE the
+    # training pipeline (src/features.py), fit on the training fold only --
+    # not here on the full dataset, which would leak test-set statistics.
     y = df["Outcome"].astype(int)
     X = df.drop(columns=["Outcome"])
 
@@ -43,8 +37,8 @@ def load_diabetes():
         "Pregnancies": dict(label="Number of Pregnancies", min=0, max=17, step=1, default=1, help="Total number of pregnancies"),
         "Glucose": dict(label="Plasma Glucose Concentration (mg/dL)", min=40.0, max=250.0, step=1.0, default=120.0, help="2-hour oral glucose tolerance test result"),
         "BloodPressure": dict(label="Diastolic Blood Pressure (mm Hg)", min=30.0, max=140.0, step=1.0, default=70.0, help=""),
-        "SkinThickness": dict(label="Triceps Skinfold Thickness (mm)", min=5.0, max=100.0, step=1.0, default=25.0, help=""),
-        "Insulin": dict(label="2-Hour Serum Insulin (mu U/mL)", min=10.0, max=850.0, step=1.0, default=80.0, help=""),
+        "SkinThickness": dict(label="Triceps Skinfold Thickness (mm)", min=0.0, max=100.0, step=1.0, default=25.0, help="Enter 0 if not measured"),
+        "Insulin": dict(label="2-Hour Serum Insulin (mu U/mL)", min=0.0, max=850.0, step=1.0, default=80.0, help="Enter 0 if not measured"),
         "BMI": dict(label="Body Mass Index (kg/m^2)", min=10.0, max=70.0, step=0.1, default=28.0, help=""),
         "DiabetesPedigreeFunction": dict(label="Diabetes Pedigree Function", min=0.05, max=2.5, step=0.01, default=0.4, help="Likelihood of diabetes based on family history"),
         "Age": dict(label="Age (years)", min=18, max=100, step=1, default=33, help=""),
@@ -58,6 +52,9 @@ def load_diabetes():
 def load_heart():
     df = pd.read_csv(os.path.join(DATA_DIR, "heart.csv"))
     df.columns = [c.strip() for c in df.columns]
+    # One exact duplicate row in the Cleveland file; left in, it could land in
+    # both a training and a validation fold.
+    df = df.drop_duplicates().reset_index(drop=True)
 
     y = df["target"].astype(int)
     X = df.drop(columns=["target"])
@@ -130,6 +127,25 @@ def load_parkinsons():
             help="Voice biomarker extracted from sustained vowel phonation",
         )
     return X, y, feature_info
+
+
+def load_parkinsons_groups():
+    """
+    Subject ID per recording (e.g. "phon_R01_S01_3" -> "S01").
+
+    The dataset has ~6 recordings per person (32 people, 195 rows). If one
+    person's recordings are split across train and test, the model can
+    recognise the *voice* rather than the disease, inflating scores. Splits
+    and CV folds for Parkinson's are therefore grouped by subject.
+    """
+    df = pd.read_csv(os.path.join(DATA_DIR, "parkinsons.data"))
+    return df["name"].str.extract(r"_(S\d+)_")[0]
+
+
+# Diseases whose rows are not independent -> group-aware splitting.
+GROUP_LOADERS = {
+    "parkinsons": load_parkinsons_groups,
+}
 
 
 LOADERS = {
