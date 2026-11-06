@@ -150,6 +150,27 @@ Report the cross-validated numbers as they come out and explain the gap
 (small, noisy Pima data; strict leak-free evaluation). Reviewers generally
 trust a team that does this more than one that reports "85%+" without evidence.
 
+## Usage
+
+1. **Install dependencies** (Python 3.10+ recommended):
+
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+2. **Start the app** (trained models are already included in `models/`):
+
+   ```bash
+   streamlit run app.py
+   ```
+
+3. **Open** the local URL Streamlit prints (default `http://localhost:8501`).
+4. **Choose a disease** (Diabetes, Heart Disease, or Parkinson's) in the sidebar.
+5. In the **Predict** tab, enter the clinical parameters and click **Predict Risk** to get the risk estimate with a SHAP-based explanation.
+6. Open the **Model Performance** tab to compare the algorithms and view confusion matrices and ROC curves.
+
+To retrain the models or run with Docker, see [Running it yourself](#running-it-yourself) below.
+
 ## Running it yourself
 
 ```bash
